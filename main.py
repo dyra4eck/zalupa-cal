@@ -24,6 +24,23 @@ def get_product(barcode: str):
 		else:
 				return {"found": False}
 
+products = {}
+
 @app.post("/products")
 def create_product(product: ProductCreate):
-		return product
+	new_id = max(products, default=0) + 1
+	kcal = 4 * product.proteins + 9 * product.fat + 4 * product.carbs
+	record = {
+		"id": new_id,
+		"name": product.name,
+		"proteins": product.proteins,
+		"fat": product.fat,
+		"carbs": product.carbs,
+		"kcal": kcal,
+	}
+	products[new_id] = record
+	return record
+
+@app.get("/products")
+def return_product():
+	return list(products.values())
