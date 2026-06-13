@@ -1,7 +1,14 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 import requests
 
 app = FastAPI()
+
+class ProductCreate(BaseModel):
+		name: str
+		proteins: float
+		fat: float
+		carbs: float
 
 @app.get("/products/{barcode}")
 def get_product(barcode: str):
@@ -16,3 +23,7 @@ def get_product(barcode: str):
 				return data["product"]
 		else:
 				return {"found": False}
+
+@app.post("/products")
+def create_product(product: ProductCreate):
+		return product
