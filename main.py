@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import requests
+import psycopg
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = FastAPI()
 
@@ -24,13 +30,20 @@ def get_product(barcode: str):
 		else:
 				return {"found": False}
 
-products = {}
-
 @app.post("/products")
 def create_product(product: ProductCreate):
-	new_id = max(products, default=0) + 1
+	conn = psycopg.connect(DATABASE_URL)
+	with conn.cursor() as cur:
+		cur.execute(
+			"INSERT INTO products (name, proteins, fat, carbs) VALUES  (%s,%s,%s,%s) RETURNING id",
+			(product.name, product.proteins, product.fat, product.carbs)
+		)
+		new_id = cur.fetchone()[0]
+	conn.commit()
+	conn.close()
+
 	kcal = 4 * product.proteins + 9 * product.fat + 4 * product.carbs
-	record = {
+	return {
 		"id": new_id,
 		"name": product.name,
 		"proteins": product.proteins,
@@ -38,9 +51,22 @@ def create_product(product: ProductCreate):
 		"carbs": product.carbs,
 		"kcal": kcal,
 	}
-	products[new_id] = record
-	return record
 
 @app.get("/products")
 def return_product():
-	return list(products.values())
+	conn = psycopg.connect(DATABASE_URL)
+	with conn.cursor() as cur:
+		cur.execute("SELECT id, name, proteins, fat, carbs FROM products")
+		rows = cur.fetchall()
+	conn.close()
+
+	result = []
+	for row in rows:
+		id, name, proteins, fat, carbs = row
+		kcal = 4 * proteins + 9 * fat + 4 * carbs
+		result.append({
+			"id": id, "name": name,
+			"proteins": proteins, "fat": fat, "carbs" : carbs,
+			"kcal": kcal,
+		})
+	return result
